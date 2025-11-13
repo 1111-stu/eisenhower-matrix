@@ -11,7 +11,7 @@ import { QUADRANTS } from '@/constants';
 import { QuadrantType } from '@/types';
 
 export default function Home() {
-  const { tasks, addTask, deleteTask, toggleTask, moveTask, clearAllTasks } = useTasks();
+  const { tasks, addTask, deleteTask, toggleTask, editTask, moveTask, clearAllTasks } = useTasks();
   const [currentQuadrant, setCurrentQuadrant] = useState<QuadrantType | null>(null);
   const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
   const [draggedFromQuadrant, setDraggedFromQuadrant] = useState<QuadrantType | null>(null);
@@ -38,6 +38,10 @@ export default function Home() {
     if (confirm('Are you sure you want to delete this task?')) {
       deleteTask(quadrant, taskId);
     }
+  };
+
+  const handleEditTask = (quadrant: QuadrantType, taskId: number, newText: string) => {
+    editTask(quadrant, taskId, newText);
   };
 
   // Drag and drop handlers
@@ -105,6 +109,7 @@ export default function Home() {
               onAddTask={() => handleAddTask(quadrant.id)}
               onToggleTask={(taskId) => toggleTask(quadrant.id, taskId)}
               onDeleteTask={(taskId) => handleDeleteTask(quadrant.id, taskId)}
+              onEditTask={(taskId, newText) => handleEditTask(quadrant.id, taskId, newText)}
               onDragStart={(taskId) => handleDragStart(quadrant.id, taskId)}
               onDragEnd={handleDragEnd}
               onDragOver={handleDragOver}

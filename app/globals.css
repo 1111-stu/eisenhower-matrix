@@ -131,6 +131,11 @@ body {
   background-color: #E0F7F6 !important;
 }
 
+/* Disable hover background when editing */
+.task-item.editing:hover {
+  background-color: white !important;
+}
+
 /* Drop zone highlight */
 .drop-zone {
   height: 300px;

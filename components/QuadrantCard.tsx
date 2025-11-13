@@ -14,6 +14,7 @@ interface QuadrantCardProps {
   onAddTask: () => void;
   onToggleTask: (taskId: number) => void;
   onDeleteTask: (taskId: number) => void;
+  onEditTask: (taskId: number, newText: string) => void;
   onDragStart: (taskId: number) => void;
   onDragEnd: () => void;
   onDragOver: (e: React.DragEvent) => void;
@@ -28,6 +29,7 @@ export function QuadrantCard({
   onAddTask,
   onToggleTask,
   onDeleteTask,
+  onEditTask,
   onDragStart,
   onDragEnd,
   onDragOver,
@@ -88,6 +90,7 @@ export function QuadrantCard({
               quadrant={config.id}
               onToggle={() => onToggleTask(task.id)}
               onDelete={() => onDeleteTask(task.id)}
+              onEdit={(newText) => onEditTask(task.id, newText)}
               onDragStart={() => onDragStart(task.id)}
               onDragEnd={onDragEnd}
             />

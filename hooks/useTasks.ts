@@ -69,6 +69,17 @@ export function useTasks() {
     }));
   };
 
+  const editTask = (quadrant: QuadrantType, taskId: number, newText: string) => {
+    if (!newText.trim()) return;
+
+    setTasks((prev) => ({
+      ...prev,
+      [quadrant]: prev[quadrant].map((task) =>
+        task.id === taskId ? { ...task, text: newText.trim() } : task
+      ),
+    }));
+  };
+
   const moveTask = (
     fromQuadrant: QuadrantType,
     toQuadrant: QuadrantType,
@@ -106,6 +117,7 @@ export function useTasks() {
     addTask,
     deleteTask,
     toggleTask,
+    editTask,
     moveTask,
     clearAllTasks,
   };
