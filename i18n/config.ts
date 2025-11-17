@@ -20,4 +20,8 @@ export const getCommonMessages = (locale: Locale): CommonMessages => {
   return dictionaries[locale] ?? dictionaries.en;
 };
 
+export const isSupportedLocale = (value: string): value is Locale => {
+  return (LOCALES as readonly string[]).includes(value);
+};
+
 

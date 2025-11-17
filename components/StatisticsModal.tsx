@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Chart as ChartJS, ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js';
 import { Doughnut, Bar } from 'react-chartjs-2';
-import { TasksByQuadrant } from '@/types';
+import { TasksByQuadrant, QuadrantType } from '@/types';
 import { QUADRANTS } from '@/constants';
 import { useCommonTranslation } from '@/hooks/useTranslation';
 
@@ -36,7 +36,7 @@ export function StatisticsModal({ isOpen, onClose, tasks }: StatisticsModalProps
   const totalPending = totalTasks - totalCompleted;
   const completionRate = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
 
-  const getQuadrantTitleKey = (id: QUADRANT_TYPE) => {
+  const getQuadrantTitleKey = (id: QuadrantType) => {
     switch (id) {
       case 'urgent-important':
         return 'quadrants.doFirst.title';
@@ -49,7 +49,7 @@ export function StatisticsModal({ isOpen, onClose, tasks }: StatisticsModalProps
     }
   };
 
-  const translateTitle = (id: QUADRANT_TYPE, fallback: string) => {
+  const translateTitle = (id: QuadrantType, fallback: string) => {
     const key = getQuadrantTitleKey(id);
     const value = t(key);
     return value === key ? fallback : value;

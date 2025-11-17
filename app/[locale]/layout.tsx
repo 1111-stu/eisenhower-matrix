@@ -3,7 +3,12 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ReactNode } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TranslationProvider } from "@/components/TranslationProvider";
-import { getCommonMessages, LOCALES, type Locale } from "@/i18n/config";
+import {
+  DEFAULT_LOCALE,
+  getCommonMessages,
+  isSupportedLocale,
+  type Locale,
+} from "@/i18n/config";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,16 +23,21 @@ const geistMono = Geist_Mono({
 interface LocaleLayoutProps {
   children: ReactNode;
   params: Promise<{
-    locale: Locale;
+    locale: string;
   }>;
 }
+
+const resolveLocale = (rawLocale: string): Locale => {
+  return isSupportedLocale(rawLocale) ? rawLocale : DEFAULT_LOCALE;
+};
 
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ locale: Locale }>;
+  params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
-  const { locale } = await params;
+  const { locale: rawLocale } = await params;
+  const locale = resolveLocale(rawLocale);
   const messages = getCommonMessages(locale);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
@@ -35,7 +45,8 @@ export async function generateMetadata({
     locale === "en" ? "/en" : locale === "zh" ? "/zh" : "/cn";
   const canonicalUrl = siteUrl ? `${siteUrl}${basePath}` : basePath;
 
-  const title = messages.seo?.title ?? "Eisenhower Matrix – Task Prioritization Tool";
+  const title =
+    messages.seo?.title ?? "Eisenhower Matrix – Task Prioritization Tool";
   const description =
     messages.seo?.description ??
     "Use the Eisenhower Matrix to prioritize tasks by urgency and importance.";
@@ -74,8 +85,12 @@ export async function generateMetadata({
   };
 }
 
-export default async function LocaleLayout({ children, params }: LocaleLayoutProps) {
-  const { locale } = await params;
+export default async function LocaleLayout({
+  children,
+  params,
+}: LocaleLayoutProps) {
+  const { locale: rawLocale } = await params;
+  const locale = resolveLocale(rawLocale);
   const messages = getCommonMessages(locale);
 
   return (
