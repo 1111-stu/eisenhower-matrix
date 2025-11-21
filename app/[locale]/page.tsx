@@ -1,26 +1,54 @@
 'use client';
 
 import { useState } from "react";
+import {
+  DndContext,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+  closestCorners,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverEvent,
+  UniqueIdentifier,
+  defaultDropAnimationSideEffects,
+} from "@dnd-kit/core";
+import {
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { QuadrantCard } from "@/components/QuadrantCard";
 import { AddTaskModal } from "@/components/AddTaskModal";
 import { StatisticsModal } from "@/components/StatisticsModal";
+import { TaskItem } from "@/components/TaskItem";
 import { useTasks } from "@/hooks/useTasks";
 import { QUADRANTS } from "@/constants";
-import { QuadrantType } from "@/types";
+import { QuadrantType, Task } from "@/types";
 import { useCommonTranslation } from "@/hooks/useTranslation";
 
 export default function HomePage() {
   const { tasks, addTask, deleteTask, toggleTask, editTask, moveTask, clearAllTasks } =
     useTasks();
   const [currentQuadrant, setCurrentQuadrant] = useState<QuadrantType | null>(null);
-  const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
-  const [draggedFromQuadrant, setDraggedFromQuadrant] =
-    useState<QuadrantType | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStatisticsOpen, setIsStatisticsOpen] = useState(false);
+  const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
+  const [activeQuadrant, setActiveQuadrant] = useState<QuadrantType | null>(null);
   const { t } = useCommonTranslation();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const handleAddTask = (quadrant: QuadrantType) => {
     setCurrentQuadrant(quadrant);
@@ -39,9 +67,7 @@ export default function HomePage() {
   };
 
   const handleDeleteTask = (quadrant: QuadrantType, taskId: number) => {
-    if (confirm(t("confirm.deleteTask"))) {
-      deleteTask(quadrant, taskId);
-    }
+    deleteTask(quadrant, taskId);
   };
 
   const handleEditTask = (
@@ -52,47 +78,105 @@ export default function HomePage() {
     editTask(quadrant, taskId, newText);
   };
 
-  const handleDragStart = (quadrant: QuadrantType, taskId: number) => {
-    setDraggedTaskId(taskId);
-    setDraggedFromQuadrant(quadrant);
-  };
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    setActiveId(active.id);
 
-  const handleDragEnd = () => {
-    setDraggedTaskId(null);
-    setDraggedFromQuadrant(null);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
-
-  const handleDragEnter = (e: React.DragEvent) => {
-    const target = e.currentTarget;
-    if (target.classList.contains("drop-zone")) {
-      target.classList.add("drag-over");
+    // Find which quadrant the task is in
+    for (const quadrant of QUADRANTS) {
+      const task = tasks[quadrant.id].find(t => `${quadrant.id}-${t.id}` === active.id);
+      if (task) {
+        setActiveQuadrant(quadrant.id);
+        break;
+      }
     }
   };
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    const target = e.currentTarget;
-    if (target.classList.contains("drop-zone")) {
-      target.classList.remove("drag-over");
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+
+    if (!over) return;
+
+    const activeContainer = findContainer(active.id);
+    const overContainer = findContainer(over.id);
+
+    if (!activeContainer || !overContainer || activeContainer === overContainer) {
+      return;
     }
   };
 
-  const handleDrop = (e: React.DragEvent, targetQuadrant: QuadrantType) => {
-    e.preventDefault();
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
 
-    const target = e.currentTarget;
-    if (target.classList.contains("drop-zone")) {
-      target.classList.remove("drag-over");
+    if (!over) {
+      setActiveId(null);
+      setActiveQuadrant(null);
+      return;
     }
 
-    if (!draggedTaskId || !draggedFromQuadrant) return;
-    if (draggedFromQuadrant === targetQuadrant) return;
+    const activeContainer = findContainer(active.id);
+    const overContainer = findContainer(over.id);
 
-    moveTask(draggedFromQuadrant, targetQuadrant, draggedTaskId);
+    if (!activeContainer || !overContainer) {
+      setActiveId(null);
+      setActiveQuadrant(null);
+      return;
+    }
+
+    // Extract task ID from the composite ID (format: "quadrant-taskId")
+    const activeTaskId = parseInt(String(active.id).split('-').pop() || '0');
+    const overTaskId = parseInt(String(over.id).split('-').pop() || '0');
+
+    if (activeContainer !== overContainer) {
+      // Moving between quadrants
+      const activeTask = tasks[activeContainer].find(t => t.id === activeTaskId);
+      if (activeTask) {
+        const overIndex = tasks[overContainer].findIndex(t => t.id === overTaskId);
+        const targetIndex = overIndex === -1 ? tasks[overContainer].length : overIndex;
+        moveTask(activeContainer, overContainer, activeTaskId, targetIndex);
+      }
+    } else {
+      // Reordering within the same quadrant
+      const oldIndex = tasks[activeContainer].findIndex(t => t.id === activeTaskId);
+      const newIndex = tasks[overContainer].findIndex(t => t.id === overTaskId);
+
+      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+        moveTask(activeContainer, activeContainer, activeTaskId, newIndex);
+      }
+    }
+
+    setActiveId(null);
+    setActiveQuadrant(null);
+  };
+
+  const findContainer = (id: UniqueIdentifier): QuadrantType | undefined => {
+    // Check if it's a container ID
+    if (QUADRANTS.some(q => q.id === id)) {
+      return id as QuadrantType;
+    }
+
+    // Check if it's a task ID (format: "quadrant-taskId")
+    const idStr = String(id);
+    for (const quadrant of QUADRANTS) {
+      if (idStr.startsWith(quadrant.id + '-')) {
+        return quadrant.id;
+      }
+    }
+
+    // Fallback: search through all tasks
+    for (const quadrant of QUADRANTS) {
+      if (tasks[quadrant.id].some(task => `${quadrant.id}-${task.id}` === id)) {
+        return quadrant.id;
+      }
+    }
+
+    return undefined;
+  };
+
+  const getActiveTask = (): Task | null => {
+    if (!activeId || !activeQuadrant) return null;
+    const taskId = parseInt(String(activeId).split('-').pop() || '0');
+    return tasks[activeQuadrant].find(t => t.id === taskId) || null;
   };
 
   const getQuadrantCount = (quadrant: QuadrantType) => tasks[quadrant].length;
@@ -110,6 +194,8 @@ export default function HomePage() {
     }
   };
 
+  const activeTask = getActiveTask();
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header
@@ -118,27 +204,52 @@ export default function HomePage() {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-12 flex-1 w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-          {QUADRANTS.map((quadrant) => (
-            <QuadrantCard
-              key={quadrant.id}
-              config={quadrant}
-              tasks={tasks[quadrant.id]}
-              onAddTask={() => handleAddTask(quadrant.id)}
-              onToggleTask={(taskId) => toggleTask(quadrant.id, taskId)}
-              onDeleteTask={(taskId) => handleDeleteTask(quadrant.id, taskId)}
-              onEditTask={(taskId, newText) =>
-                handleEditTask(quadrant.id, taskId, newText)
-              }
-              onDragStart={(taskId) => handleDragStart(quadrant.id, taskId)}
-              onDragEnd={handleDragEnd}
-              onDragOver={handleDragOver}
-              onDragEnter={handleDragEnter}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, quadrant.id)}
-            />
-          ))}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            {QUADRANTS.map((quadrant) => (
+              <QuadrantCard
+                key={quadrant.id}
+                config={quadrant}
+                tasks={tasks[quadrant.id]}
+                onAddTask={() => handleAddTask(quadrant.id)}
+                onToggleTask={(taskId) => toggleTask(quadrant.id, taskId)}
+                onDeleteTask={(taskId) => handleDeleteTask(quadrant.id, taskId)}
+                onEditTask={(taskId, newText) =>
+                  handleEditTask(quadrant.id, taskId, newText)
+                }
+              />
+            ))}
+          </div>
+
+          <DragOverlay
+            dropAnimation={{
+              sideEffects: defaultDropAnimationSideEffects({
+                styles: {
+                  active: {
+                    opacity: '0.5',
+                  },
+                },
+              }),
+            }}
+          >
+            {activeTask ? (
+              <TaskItem
+                task={activeTask}
+                quadrant={activeQuadrant!}
+                onToggle={() => {}}
+                onDelete={() => {}}
+                onEdit={() => {}}
+                isDragOverlay
+              />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
 
         <div className="mt-6 sm:mt-12 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {QUADRANTS.map((quadrant) => (
@@ -176,5 +287,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-

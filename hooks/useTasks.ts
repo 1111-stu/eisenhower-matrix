@@ -77,7 +77,7 @@ export function useTasks() {
 
     setTasks((prev) => ({
       ...prev,
-      [quadrant]: [...prev[quadrant], newTask],
+      [quadrant]: [newTask, ...prev[quadrant]], // 插入到数组开头
     }));
   };
 

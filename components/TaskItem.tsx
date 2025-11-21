@@ -3,28 +3,48 @@
 import { useState } from 'react';
 import { Task, QuadrantType } from '@/types';
 import { QUADRANTS } from '@/constants';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface TaskItemProps {
+  id?: string;
   task: Task;
   quadrant: QuadrantType;
   onToggle: () => void;
   onDelete: () => void;
   onEdit: (newText: string) => void;
-  onDragStart: (e: React.DragEvent) => void;
-  onDragEnd: (e: React.DragEvent) => void;
+  isDragOverlay?: boolean;
 }
 
 export function TaskItem({
+  id,
   task,
   quadrant,
   onToggle,
   onDelete,
   onEdit,
-  onDragStart,
-  onDragEnd,
+  isDragOverlay = false,
 }: TaskItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: id || `${quadrant}-${task.id}`,
+    disabled: isEditing || isDragOverlay,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
 
   // Get quadrant color
   const quadrantConfig = QUADRANTS.find(q => q.id === quadrant);
@@ -50,16 +70,42 @@ export function TaskItem({
     }
   };
 
+  // If it's a drag overlay, render a simpler version
+  if (isDragOverlay) {
+    return (
+      <div
+        className={`task-item quadrant-${quadrant} flex items-start gap-2 sm:gap-3 border-2 border-[#383838] p-3 sm:p-4 bg-white shadow-lg ${
+          task.completed ? 'completed' : ''
+        }`}
+        style={{
+          borderLeftColor: quadrantColor,
+          borderLeftWidth: '4px',
+        }}
+      >
+        <input
+          type="checkbox"
+          className="custom-checkbox mt-0.5"
+          checked={task.completed}
+          disabled
+        />
+        <p className="task-text flex-1 text-xs sm:text-sm font-medium leading-relaxed">
+          {task.text}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div
-      className={`task-item quadrant-${quadrant} flex items-start gap-2 sm:gap-3 border-2 border-[#383838] p-3 sm:p-4 ${
+      ref={setNodeRef}
+      style={style}
+      className={`task-item quadrant-${quadrant} flex items-start gap-2 sm:gap-3 border-2 border-[#383838] p-3 sm:p-4 bg-white ${
         task.completed ? 'completed' : ''
-      } ${isEditing ? 'cursor-default editing' : 'cursor-move'}`}
-      draggable={!isEditing}
-      data-task-id={task.id}
-      data-quadrant={quadrant}
-      onDragStart={isEditing ? undefined : onDragStart}
-      onDragEnd={isEditing ? undefined : onDragEnd}
+      } ${isEditing ? 'cursor-default editing' : 'cursor-move'} ${
+        isDragging ? 'z-50' : ''
+      } transition-colors hover:bg-gray-50`}
+      {...attributes}
+      {...(isEditing ? {} : listeners)}
     >
       <input
         type="checkbox"
@@ -76,11 +122,12 @@ export function TaskItem({
           onChange={(e) => setEditText(e.target.value)}
           onKeyDown={handleKeyDown}
           onBlur={handleSave}
-          className="flex-1 text-xs sm:text-sm font-medium leading-relaxed border border-[#383838] px-2 py-1 focus:outline-none focus:ring-2"
+          className="flex-1 text-xs sm:text-sm font-medium leading-relaxed border border-[#383838] px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          style={{ borderColor: quadrantColor }}
           autoFocus
         />
       ) : (
-        <p className="task-text flex-1 text-xs sm:text-sm font-medium leading-relaxed wrap-break-word">
+        <p className="task-text flex-1 text-xs sm:text-sm font-medium leading-relaxed wrap-break-word select-none">
           {task.text}
         </p>
       )}
@@ -89,7 +136,7 @@ export function TaskItem({
         {!isEditing && !task.completed && (
           <button
             onClick={() => setIsEditing(true)}
-            className="text-[#383838]  font-bold text-base transition-colors cursor-pointer"
+            className="text-[#383838] font-bold text-base transition-colors cursor-pointer hover:text-blue-500"
             title="Edit task"
           >
             ✎
@@ -97,7 +144,7 @@ export function TaskItem({
         )}
         <button
           onClick={onDelete}
-          className="text-[#FF6B6B] font-bold text-lg transition-colors cursor-pointer"
+          className="text-[#FF6B6B] hover:text-red-700 font-bold text-lg transition-colors cursor-pointer"
           title="Delete task"
         >
           ×

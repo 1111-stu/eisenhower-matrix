@@ -3,6 +3,11 @@
 import { Task, QuadrantType } from '@/types';
 import { TaskItem } from './TaskItem';
 import { useCommonTranslation } from '@/hooks/useTranslation';
+import { useDroppable } from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 
 interface QuadrantCardProps {
   config: {
@@ -16,12 +21,6 @@ interface QuadrantCardProps {
   onToggleTask: (taskId: number) => void;
   onDeleteTask: (taskId: number) => void;
   onEditTask: (taskId: number, newText: string) => void;
-  onDragStart: (taskId: number) => void;
-  onDragEnd: () => void;
-  onDragOver: (e: React.DragEvent) => void;
-  onDragEnter: (e: React.DragEvent) => void;
-  onDragLeave: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent) => void;
 }
 
 export function QuadrantCard({
@@ -31,14 +30,11 @@ export function QuadrantCard({
   onToggleTask,
   onDeleteTask,
   onEditTask,
-  onDragStart,
-  onDragEnd,
-  onDragOver,
-  onDragEnter,
-  onDragLeave,
-  onDrop,
 }: QuadrantCardProps) {
   const { t } = useCommonTranslation();
+  const { setNodeRef, isOver } = useDroppable({
+    id: config.id,
+  });
 
   const getTitleKey = (id: QuadrantType) => {
     switch (id) {
@@ -74,8 +70,15 @@ export function QuadrantCard({
   const title = translateOrFallback(getTitleKey(config.id), config.title);
   const subtitle = translateOrFallback(getSubtitleKey(config.id), config.subtitle);
 
+  // Create unique IDs for sortable items
+  const sortableItems = tasks.map(task => `${config.id}-${task.id}`);
+
   return (
-    <div className="bg-white border-2 border-[#383838] rounded p-4 sm:p-6">
+    <div
+      className={`bg-white border-2 border-[#383838] rounded p-4 sm:p-6 transition-colors ${
+        isOver ? 'bg-gray-50' : ''
+      }`}
+    >
       <div className="flex items-center justify-between mb-4 sm:mb-6">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
@@ -105,34 +108,33 @@ export function QuadrantCard({
       </div>
 
       <div
-        id={`quadrant-${config.id}`}
-        className="drop-zone space-y-2 sm:space-y-3"
-        data-quadrant={config.id}
-        onDragOver={onDragOver}
-        onDragEnter={onDragEnter}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
+        ref={setNodeRef}
+        className={'drop-zone space-y-2 sm:space-y-3 min-h-[100px] transition-all'}
       >
-        {tasks.length === 0 ? (
-          <div className="empty-state text-center py-8 sm:py-12">
-            <p className="text-gray-600 text-xs sm:text-sm">
-              {t('quadrants.emptyHint')}
-            </p>
-          </div>
-        ) : (
-          tasks.map((task) => (
-            <TaskItem
-              key={task.id}
-              task={task}
-              quadrant={config.id}
-              onToggle={() => onToggleTask(task.id)}
-              onDelete={() => onDeleteTask(task.id)}
-              onEdit={(newText) => onEditTask(task.id, newText)}
-              onDragStart={() => onDragStart(task.id)}
-              onDragEnd={onDragEnd}
-            />
-          ))
-        )}
+        <SortableContext
+          items={sortableItems}
+          strategy={verticalListSortingStrategy}
+        >
+          {tasks.length === 0 ? (
+            <div className="empty-state text-center py-8 sm:py-12">
+              <p className="text-gray-600 text-xs sm:text-sm">
+                {t('quadrants.emptyHint')}
+              </p>
+            </div>
+          ) : (
+            tasks.map((task) => (
+              <TaskItem
+                key={task.id}
+                id={`${config.id}-${task.id}`}
+                task={task}
+                quadrant={config.id}
+                onToggle={() => onToggleTask(task.id)}
+                onDelete={() => onDeleteTask(task.id)}
+                onEdit={(newText) => onEditTask(task.id, newText)}
+              />
+            ))
+          )}
+        </SortableContext>
       </div>
     </div>
   );

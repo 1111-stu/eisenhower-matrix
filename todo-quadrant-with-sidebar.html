@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eisenhower Matrix with Sidebar - MotherDuck Style</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        /* Button styles with shadow effect */
+        .btn-blue {
+            background-color: #6FC2FF;
+            border: 2px solid #383838; 
+            color: #383838;
+            position: relative;
+            transition: transform 120ms ease-in-out, box-shadow 120ms ease-in-out;
+        }
+
+        .btn-blue:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 4px 4px 0px 0px #383838;
+        }
+
+        .btn-blue:active {
+            transform: translate(0, 0);
+            box-shadow: 2px 2px 0px 0px #383838;
+        }
+
+        .btn-white {
+            background-color: white;
+            border: 2px solid #383838;
+            color: #383838;
+            position: relative;
+            transition: transform 120ms ease-in-out, box-shadow 120ms ease-in-out;
+        }
+
+        .btn-white:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 4px 4px 0px 0px #383838;
+        }
+
+        .btn-white:active {
+            transform: translate(0, 0);
+            box-shadow: 2px 2px 0px 0px #383838;
+        }
+
+        /* Sidebar specific styles */
+        .sidebar {
+            width: 280px;
+            background-color: white;
+            border-right: 2px solid #383838;
+            transition: transform 300ms ease-in-out;
+        }
+
+        .sidebar-collapsed {
+            transform: translateX(-280px);
+            margin-left: -280px;
+        }
+
+        @media (max-width: 1024px) {
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                height: 100vh;
+                z-index: 60;
+                transform: translateX(-100%);
+            }
+
+            .sidebar-mobile-open {
+                transform: translateX(0);
+            }
+
+            .sidebar-collapsed {
+                margin-left: 0;
+            }
+        }
+
+        /* Catalog item styles */
+        .catalog-item {
+            transition: all 150ms ease-in-out;
+            position: relative;
+        }
+
+        .catalog-item:hover {
+            background-color: #F4EFEA;
+            padding-left: 20px;
+        }
+
+        .catalog-item.active {
+            background-color: #6FC2FF;
+            border-left: 4px solid #383838;
+        }
+
+        .catalog-item.active:hover {
+            background-color: #5CB8E6;
+        }
+
+        /* Folder styles */
+        .folder-item {
+            position: relative;
+            transition: all 150ms ease-in-out;
+        }
+
+        .folder-toggle {
+            transition: transform 150ms ease-in-out;
+        }
+
+        .folder-expanded .folder-toggle {
+            transform: rotate(90deg);
+        }
+
+        /* Custom checkbox */
+        .custom-checkbox {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #383838;
+            border-radius: 3px;
+            background: white;
+            cursor: pointer;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .custom-checkbox:checked {
+            background: #383838;
+        }
+
+        .custom-checkbox:checked::after {
+            content: '✓';
+            position: absolute;
+            color: white;
+            font-size: 14px;
+            top: -2px;
+            left: 2px;
+            font-weight: bold;
+        }
+
+        /* Task item styles */
+        .task-item {
+            transition: all 150ms ease-in-out;
+        }
+
+        .task-item:hover {
+            background-color: #6FC2FF;
+        }
+
+        .task-item.dragging {
+            opacity: 0.5;
+        }
+
+        .task-item.completed {
+            opacity: 0.6;
+        }
+
+        .task-item.completed .task-text {
+            text-decoration: line-through;
+        }
+
+        /* Quadrant colors */
+        .quadrant-urgent-important {
+            border-left: 4px solid #FF6B6B;
+        }
+
+        .quadrant-not-urgent-important {
+            border-left: 4px solid #6FC2FF;
+        }
+
+        .quadrant-urgent-not-important {
+            border-left: 4px solid #FFD500;
+        }
+
+        .quadrant-not-urgent-not-important {
+            border-left: 4px solid #4DD4D0;
+        }
+
+        /* Drop zone highlight */
+        .drop-zone {
+            height: 300px;
+            overflow-y: auto;
+            transition: background-color 150ms ease-in-out;
+            padding-right: 8px;
+            scrollbar-width: thin;
+            scrollbar-color: #F4EFEA transparent;
+        }
+
+        /* Custom Scrollbar for Webkit browsers */
+        .drop-zone::-webkit-scrollbar,
+        .sidebar-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .drop-zone::-webkit-scrollbar-track,
+        .sidebar-scroll::-webkit-scrollbar-track {
+            background: transparent;
+            margin: 4px 0;
+        }
+
+        .drop-zone::-webkit-scrollbar-thumb,
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+            background: #F4EFEA;
+            border-radius: 3px;
+            transition: background-color 120ms ease-in-out;
+        }
+
+        .drop-zone::-webkit-scrollbar-thumb:hover,
+        .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+            background: #E6DFD8;
+        }
+
+        .drop-zone::-webkit-scrollbar-thumb:active,
+        .sidebar-scroll::-webkit-scrollbar-thumb:active {
+            background: #D9D1C9;
+        }
+
+        .drop-zone.drag-over {
+            background-color: #F4EFEA;
+            border: 2px dashed #383838;
+        }
+
+        /* Empty state */
+        .empty-state {
+            opacity: 0.4;
+        }
+
+        /* Mobile overlay */
+        .mobile-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background-color: rgba(56, 56, 56, 0.5);
+            z-index: 55;
+        }
+
+        .mobile-overlay.active {
+            display: block;
+        }
+
+        @media (min-width: 1024px) {
+            .mobile-overlay {
+                display: none !important;
+            }
+        }
+
+        /* Resize handle for sidebar */
+        .resize-handle {
+            position: absolute;
+            right: -2px;
+            top: 0;
+            bottom: 0;
+            width: 6px;
+            cursor: ew-resize;
+            background: transparent;
+            transition: background-color 150ms ease-in-out;
+        }
+
+        .resize-handle:hover {
+            background-color: #6FC2FF;
+        }
+
+        /* Search input styling */
+        .search-input {
+            padding: 10px 14px;
+            border: 2px solid #383838;
+            font-size: 14px;
+            transition: all 150ms ease-in-out;
+        }
+
+        .search-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px #6FC2FF;
+        }
+    </style>
+</head>
+<body class="bg-[#F4EFEA] text-[#383838] antialiased">
+    <!-- Mobile Menu Button & Overlay -->
+    <div class="mobile-overlay" id="mobile-overlay"></div>
+
+    <!-- Main Layout Container -->
+    <div class="flex h-screen overflow-hidden">
+
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar sidebar-collapsed flex flex-col">
+            <!-- Sidebar Header -->
+            <div class="p-4 border-b-2 border-[#383838] bg-[#FFD500] flex items-center justify-center">
+                <h2 class="text-xl font-bold tracking-tight">EISENHOUWER MATRIX</h2>
+            </div>
+
+            <!-- Catalog List -->
+            <div class="flex-1 overflow-y-auto sidebar-scroll p-4">
+                <!-- Folders Section -->
+                <div class="mb-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xs font-bold tracking-widest text-gray-600 uppercase">FOLDERS</h3>
+                        <button class="text-xs text-gray-600 hover:text-[#383838] transition-colors">
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                                <path d="M7 3v8M3 7h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Folder Items -->
+                    <div class="space-y-1">
+                        <!-- Work Folder (Expanded) -->
+                        <div class="folder-item folder-expanded">
+                            <div class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-[#F4EFEA] rounded transition-colors">
+                                <svg class="folder-toggle w-3 h-3" viewBox="0 0 12 12" fill="#383838">
+                                    <path d="M4 2l6 5-6 5V2z"/>
+                                </svg>
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="#FFD500">
+                                    <path d="M1 4a1 1 0 011-1h4l2 2h6a1 1 0 011 1v8a1 1 0 01-1 1H2a1 1 0 01-1-1V4z" stroke="#383838" stroke-width="1.5"/>
+                                </svg>
+                                <span class="text-sm font-medium">Work Projects</span>
+                                <span class="ml-auto text-xs text-gray-500">12</span>
+                            </div>
+
+                            <!-- Nested Items -->
+                            <div class="ml-4 mt-1 space-y-1">
+                                <div class="catalog-item active flex items-center gap-3 px-3 py-2 cursor-pointer rounded">
+                                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                        <rect x="1" y="1" width="12" height="12" stroke="#383838" stroke-width="1.5" fill="white"/>
+                                        <rect x="3" y="3" width="3" height="3" fill="#FF6B6B"/>
+                                        <rect x="8" y="3" width="3" height="3" fill="#6FC2FF"/>
+                                        <rect x="3" y="8" width="3" height="3" fill="#FFD500"/>
+                                        <rect x="8" y="8" width="3" height="3" fill="#4DD4D0"/>
+                                    </svg>
+                                    <span class="text-sm font-medium">Q1 Planning</span>
+                                </div>
+                                <div class="catalog-item flex items-center gap-3 px-3 py-2 cursor-pointer rounded">
+                                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                        <rect x="1" y="1" width="12" height="12" stroke="#383838" stroke-width="1.5" fill="white"/>
+                                        <rect x="3" y="3" width="3" height="3" fill="#FF6B6B"/>
+                                        <rect x="8" y="3" width="3" height="3" fill="#6FC2FF"/>
+                                        <rect x="3" y="8" width="3" height="3" fill="#FFD500"/>
+                                        <rect x="8" y="8" width="3" height="3" fill="#4DD4D0"/>
+                                    </svg>
+                                    <span class="text-sm font-medium">Product Launch</span>
+                                </div>
+                                <div class="catalog-item flex items-center gap-3 px-3 py-2 cursor-pointer rounded">
+                                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                        <rect x="1" y="1" width="12" height="12" stroke="#383838" stroke-width="1.5" fill="white"/>
+                                        <rect x="3" y="3" width="3" height="3" fill="#FF6B6B"/>
+                                        <rect x="8" y="3" width="3" height="3" fill="#6FC2FF"/>
+                                        <rect x="3" y="8" width="3" height="3" fill="#FFD500"/>
+                                        <rect x="8" y="8" width="3" height="3" fill="#4DD4D0"/>
+                                    </svg>
+                                    <span class="text-sm font-medium">Team OKRs</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Personal Folder (Collapsed) -->
+                        <div class="folder-item">
+                            <div class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-[#F4EFEA] rounded transition-colors">
+                                <svg class="folder-toggle w-3 h-3" viewBox="0 0 12 12" fill="#383838">
+                                    <path d="M4 2l6 5-6 5V2z"/>
+                                </svg>
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="#4DD4D0">
+                                    <path d="M1 4a1 1 0 011-1h4l2 2h6a1 1 0 011 1v8a1 1 0 01-1 1H2a1 1 0 01-1-1V4z" stroke="#383838" stroke-width="1.5"/>
+                                </svg>
+                                <span class="text-sm font-medium">Personal</span>
+                                <span class="ml-auto text-xs text-gray-500">5</span>
+                            </div>
+                        </div>
+
+                        <!-- Archive Folder -->
+                        <div class="folder-item">
+                            <div class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-[#F4EFEA] rounded transition-colors">
+                                <svg class="folder-toggle w-3 h-3" viewBox="0 0 12 12" fill="#383838">
+                                    <path d="M4 2l6 5-6 5V2z"/>
+                                </svg>
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="#E0E0E0">
+                                    <path d="M1 4a1 1 0 011-1h4l2 2h6a1 1 0 011 1v8a1 1 0 01-1 1H2a1 1 0 01-1-1V4z" stroke="#383838" stroke-width="1.5"/>
+                                </svg>
+                                <span class="text-sm font-medium text-gray-600">Archive</span>
+                                <span class="ml-auto text-xs text-gray-500">23</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Catalogs -->
+                <div class="mb-6">
+                    <h3 class="text-xs font-bold tracking-widest text-gray-600 uppercase mb-3">RECENT</h3>
+                    <div class="space-y-1">
+                        <div class="catalog-item flex items-center gap-3 px-3 py-2 cursor-pointer rounded">
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                <rect x="1" y="1" width="12" height="12" stroke="#383838" stroke-width="1.5" fill="white"/>
+                                <rect x="3" y="3" width="3" height="3" fill="#FF6B6B"/>
+                                <rect x="8" y="3" width="3" height="3" fill="#6FC2FF"/>
+                                <rect x="3" y="8" width="3" height="3" fill="#FFD500"/>
+                                <rect x="8" y="8" width="3" height="3" fill="#4DD4D0"/>
+                            </svg>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium truncate">Weekly Review</p>
+                                <p class="text-xs text-gray-500">2 hours ago</p>
+                            </div>
+                        </div>
+                        <div class="catalog-item flex items-center gap-3 px-3 py-2 cursor-pointer rounded">
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                <rect x="1" y="1" width="12" height="12" stroke="#383838" stroke-width="1.5" fill="white"/>
+                                <rect x="3" y="3" width="3" height="3" fill="#FF6B6B"/>
+                                <rect x="8" y="3" width="3" height="3" fill="#6FC2FF"/>
+                                <rect x="3" y="8" width="3" height="3" fill="#FFD500"/>
+                                <rect x="8" y="8" width="3" height="3" fill="#4DD4D0"/>
+                            </svg>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium truncate">Home Renovation</p>
+                                <p class="text-xs text-gray-500">Yesterday</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Resize Handle (Desktop Only) -->
+            <div class="resize-handle hidden lg:block"></div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- Main Content -->
+            <main class="flex-1 overflow-y-auto bg-[#F4EFEA] relative">
+                <!-- Floating Toolbar -->
+                <div class="absolute top-4 left-6 z-30 flex items-center gap-1 bg-white border-2 border-[#383838] rounded-md py-1 px-2">
+                    <!-- Toggle Sidebar Button -->
+                    <button
+                        onclick="toggleSidebar()"
+                        class="p-1 hover:bg-gray-200 transition-all group rounded-md"
+                        title="Toggle Sidebar (Cmd/Ctrl + B)"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" class="transition-transform group-hover:scale-110">
+                            <path d="M3 5h14M3 10h14M3 15h14" stroke="#383838" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+
+                    <!-- Clear All Button -->
+                    <button
+                        onclick="clearAllTasks()"
+                        class="p-1 hover:bg-gray-200 transition-all group rounded-md"
+                        title="Clear All Tasks"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" class="transition-transform group-hover:scale-110">
+                            <path d="M6 4V2a1 1 0 011-1h6a1 1 0 011 1v2M8 9v5M12 9v5M4 6h12M15 6v11a1 1 0 01-1 1H6a1 1 0 01-1-1V6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+
+                    <!-- Statistics Button -->
+                    <button
+                        onclick="toggleStatistics()"
+                        class="p-1 hover:bg-gray-200 transition-all group rounded-md"
+                        title="View Statistics"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" class="transition-transform group-hover:scale-110">
+                            <path d="M3 17V7M7 17V3M11 17v-7M15 17v-10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="max-w-7xl mx-auto px-4 lg:px-6 pt-20 pb-6 lg:pb-12">
+                    <!-- Quadrant Grid -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+                        <!-- Quadrant 1: Urgent & Important -->
+                        <div class="bg-white border-2 border-[#383838] rounded p-4 lg:p-6">
+                            <div class="flex items-center justify-between mb-4 lg:mb-6">
+                                <div>
+                                    <div class="flex items-center gap-3 mb-2">
+                                        <div class="w-4 h-4 bg-[#FF6B6B] border-2 border-[#383838]"></div>
+                                        <h2 class="text-xl lg:text-2xl font-bold tracking-tight">DO FIRST</h2>
+                                    </div>
+                                    <p class="text-xs lg:text-sm text-gray-600">Urgent & Important</p>
+                                </div>
+                                <button class="btn-blue px-3 lg:px-4 py-2 rounded-none font-bold text-xs uppercase">
+                                    + ADD
+                                </button>
+                            </div>
+
+                            <div class="drop-zone space-y-3">
+                                <!-- Tasks will be inserted here -->
+                            </div>
+                        </div>
+
+                        <!-- Quadrant 2: Not Urgent but Important -->
+                        <div class="bg-white border-2 border-[#383838] rounded p-4 lg:p-6">
+                            <div class="flex items-center justify-between mb-4 lg:mb-6">
+                                <div>
+                                    <div class="flex items-center gap-3 mb-2">
+                                        <div class="w-4 h-4 bg-[#6FC2FF] border-2 border-[#383838]"></div>
+                                        <h2 class="text-xl lg:text-2xl font-bold tracking-tight">SCHEDULE</h2>
+                                    </div>
+                                    <p class="text-xs lg:text-sm text-gray-600">Not Urgent but Important</p>
+                                </div>
+                                <button class="btn-blue px-3 lg:px-4 py-2 rounded-none font-bold text-xs uppercase">
+                                    + ADD
+                                </button>
+                            </div>
+
+                            <div class="drop-zone space-y-3">
+                                <!-- Tasks will be inserted here -->
+                            </div>
+                        </div>
+
+                        <!-- Quadrant 3: Urgent but Not Important -->
+                        <div class="bg-white border-2 border-[#383838] rounded p-4 lg:p-6">
+                            <div class="flex items-center justify-between mb-4 lg:mb-6">
+                                <div>
+                                    <div class="flex items-center gap-3 mb-2">
+                                        <div class="w-4 h-4 bg-[#FFD500] border-2 border-[#383838]"></div>
+                                        <h2 class="text-xl lg:text-2xl font-bold tracking-tight">DELEGATE</h2>
+                                    </div>
+                                    <p class="text-xs lg:text-sm text-gray-600">Urgent but Not Important</p>
+                                </div>
+                                <button class="btn-blue px-3 lg:px-4 py-2 rounded-none font-bold text-xs uppercase">
+                                    + ADD
+                                </button>
+                            </div>
+
+                            <div class="drop-zone space-y-3">
+                                <!-- Tasks will be inserted here -->
+                            </div>
+                        </div>
+
+                        <!-- Quadrant 4: Not Urgent & Not Important -->
+                        <div class="bg-white border-2 border-[#383838] rounded p-4 lg:p-6">
+                            <div class="flex items-center justify-between mb-4 lg:mb-6">
+                                <div>
+                                    <div class="flex items-center gap-3 mb-2">
+                                        <div class="w-4 h-4 bg-[#4DD4D0] border-2 border-[#383838]"></div>
+                                        <h2 class="text-xl lg:text-2xl font-bold tracking-tight">ELIMINATE</h2>
+                                    </div>
+                                    <p class="text-xs lg:text-sm text-gray-600">Not Urgent & Not Important</p>
+                                </div>
+                                <button class="btn-blue px-3 lg:px-4 py-2 rounded-none font-bold text-xs uppercase">
+                                    + ADD
+                                </button>
+                            </div>
+
+                            <div class="drop-zone space-y-3">
+                                <!-- Tasks will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Statistics Cards -->
+                    <div class="mt-8 lg:mt-12 grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+                        <div class="bg-white border-2 border-[#383838] rounded p-3 lg:p-4 text-center">
+                            <div class="text-2xl lg:text-3xl font-bold text-[#FF6B6B]">0</div>
+                            <div class="text-xs lg:text-sm text-gray-600 mt-1">Do First</div>
+                        </div>
+                        <div class="bg-white border-2 border-[#383838] rounded p-3 lg:p-4 text-center">
+                            <div class="text-2xl lg:text-3xl font-bold text-[#6FC2FF]">0</div>
+                            <div class="text-xs lg:text-sm text-gray-600 mt-1">Schedule</div>
+                        </div>
+                        <div class="bg-white border-2 border-[#383838] rounded p-3 lg:p-4 text-center">
+                            <div class="text-2xl lg:text-3xl font-bold text-[#FFD500]">0</div>
+                            <div class="text-xs lg:text-sm text-gray-600 mt-1">Delegate</div>
+                        </div>
+                        <div class="bg-white border-2 border-[#383838] rounded p-3 lg:p-4 text-center">
+                            <div class="text-2xl lg:text-3xl font-bold text-[#4DD4D0]">0</div>
+                            <div class="text-xs lg:text-sm text-gray-600 mt-1">Eliminate</div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Footer -->
+            <footer class="border-t-2 border-[#383838] bg-white">
+                <div class="max-w-7xl mx-auto px-6 py-4 text-center">
+                    <p class="text-xs lg:text-sm text-gray-600">
+                        🦆 Built with <a href="#" class="underline hover:opacity-70 transition-opacity">MotherDuck</a> Design System
+                    </p>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <script>
+        // Toggle sidebar (works for both desktop and mobile)
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobile-overlay');
+
+            // On mobile, use overlay
+            if (window.innerWidth < 1024) {
+                sidebar.classList.toggle('sidebar-mobile-open');
+                overlay.classList.toggle('active');
+            } else {
+                // On desktop, just collapse/expand
+                sidebar.classList.toggle('sidebar-collapsed');
+            }
+        }
+
+        // Close mobile sidebar when clicking overlay
+        document.getElementById('mobile-overlay').addEventListener('click', function() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobile-overlay');
+
+            sidebar.classList.remove('sidebar-mobile-open');
+            overlay.classList.remove('active');
+        });
+
+        // Placeholder functions for Clear All and Statistics
+        function clearAllTasks() {
+            if (confirm('Are you sure you want to clear all tasks?')) {
+                console.log('Clearing all tasks...');
+                // Implement clear all logic here
+            }
+        }
+
+        function toggleStatistics() {
+            console.log('Toggle statistics view...');
+            // Implement statistics modal logic here
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (event) => {
+            // Cmd/Ctrl + B to toggle sidebar
+            if ((event.metaKey || event.ctrlKey) && event.key === 'b') {
+                event.preventDefault();
+                toggleSidebar();
+            }
+        });
+
+        // Initialize with sidebar visible
+        window.addEventListener('DOMContentLoaded', () => {
+            const sidebar = document.getElementById('sidebar');
+            // Show sidebar on desktop by default
+            if (window.innerWidth >= 1024) {
+                sidebar.classList.remove('sidebar-collapsed');
+            }
+        });
+    </script>
+</body>
+</html>
